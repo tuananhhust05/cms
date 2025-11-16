@@ -1,0 +1,27 @@
+{
+  "watch": [
+    "app",
+    "lib",
+    "prisma",
+    "public",
+    "next.config.js",
+    "tsconfig.json"
+  ],
+  "ext": "ts,tsx,js,jsx,json,css",
+  "ignore": [
+    "node_modules",
+    ".next",
+    "dist",
+    "*.test.ts",
+    "*.test.tsx"
+  ],
+  "exec": "next dev -H 0.0.0.0",
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "delay": 1000,
+  "legacyWatch": true,
+  "polling": true,
+  "verbose": true
+}
+

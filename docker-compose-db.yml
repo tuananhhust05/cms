@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  redis_frontend:
+    image: redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - /docker-data/redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gobig-services
+    deploy:
+      restart_policy:
+        condition: on-failure
+      replicas: 1
+  postgress_frontend:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "c4f1f23e9a8d47bfb2e6e65c18fd91f12"
+      POSTGRES_DB: frontend_db
+    volumes:
+      - ./docker-data/postgres_frontend_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gobig-services
+    deploy:
+      restart_policy:
+        condition: on-failure
+      replicas: 1
+
+networks:
+  gobig-services:
+    external: true

@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  cms-next:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3333:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:c4f1f23e9a8d47bfb2e6e65c18fd91f12@postgress_frontend:5432/frontend_db
+      - REDIS_HOST=redis_frontend
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+      - NEXTAUTH_URL=http://localhost:3000
+      # Enable file watching for hot reload
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    # Use nodemon for automatic restart on file changes
+    # command: sh -c "npm run dev:watch"
+    # Ensure container restarts on file changes
+    stdin_open: true
+    tty: true
+    networks:
+      - gobig-services
+    restart: unless-stopped
+
+networks:
+  gobig-services:
+    external: true
+
