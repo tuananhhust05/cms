@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { getCache, setCache } from '@/lib/redis';
+import { ensureDatabaseInitialized } from '@/lib/db-init';
 import { HiOutlineCalendar, HiOutlineUser, HiOutlineArrowLeft } from 'react-icons/hi2';
 import './post.css';
 
@@ -11,44 +12,98 @@ async function getPost(slug: string) {
     return null;
   }
 
+  // Ensure database is initialized before querying
+  try {
+    await ensureDatabaseInitialized();
+  } catch (error: any) {
+    console.error('Database initialization error:', error.message);
+  }
+
   const cacheKey = `posts:public:${slug}`;
   const cached = await getCache(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const post = await prisma.post.findUnique({
-    where: {
-      slug,
-      status: 'PUBLISHED',
-    },
-    include: {
-      author: {
-        select: {
-          name: true,
-          email: true,
+  try {
+    const post = await prisma.post.findUnique({
+      where: {
+        slug,
+        status: 'PUBLISHED',
+      },
+      include: {
+        author: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+        category: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
+        tags: {
+          select: {
+            name: true,
+            slug: true,
+          },
         },
       },
-      category: {
-        select: {
-          name: true,
-          slug: true,
-        },
-      },
-      tags: {
-        select: {
-          name: true,
-          slug: true,
-        },
-      },
-    },
-  });
+    });
 
-  if (post) {
-    await setCache(cacheKey, post, 600); // Cache for 10 minutes
+    if (post) {
+      await setCache(cacheKey, post, 600); // Cache for 10 minutes
+    }
+
+    return post;
+  } catch (error: any) {
+    // If table doesn't exist, try to initialize and retry once
+    if (error.code === 'P2021' || error.message?.includes('does not exist')) {
+      console.log('⚠ Table not found, attempting to initialize database...');
+      try {
+        await ensureDatabaseInitialized();
+        // Retry query after initialization
+        const post = await prisma.post.findUnique({
+          where: {
+            slug,
+            status: 'PUBLISHED',
+          },
+          include: {
+            author: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+            category: {
+              select: {
+                name: true,
+                slug: true,
+              },
+            },
+            tags: {
+              select: {
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        });
+        if (post) {
+          await setCache(cacheKey, post, 600);
+        }
+        return post;
+      } catch (retryError: any) {
+        console.error('Failed to initialize database:', retryError.message);
+        return null;
+      }
+    }
+    // Other errors, return null
+    console.error('Error fetching post:', error.message);
+    return null;
   }
-
-  return post;
 }
 
 export default async function PostPage({ params }: { params: { slug: string } }) {
